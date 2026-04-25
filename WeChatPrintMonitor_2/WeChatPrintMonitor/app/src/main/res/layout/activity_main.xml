@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center_horizontal">
+
+    <TextView
+        android:text="微信 @消息打印监控"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:text="监听昵称：小刘刘"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:textColor="#888888"
+        android:layout_marginBottom="32dp"/>
+
+    <!-- 状态显示 -->
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="检查权限中..."
+        android:textSize="15sp"
+        android:padding="16dp"
+        android:background="#F5F5F5"
+        android:layout_marginBottom="24dp"/>
+
+    <!-- 授权按钮 -->
+    <Button
+        android:id="@+id/btnPermission"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="① 授权通知访问权限"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- 扫描打印机 -->
+    <Button
+        android:id="@+id/btnScan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="② 扫描已配对蓝牙打印机"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- 打印机选择列表 -->
+    <Spinner
+        android:id="@+id/spinnerPrinters"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"/>
+
+    <!-- 使用说明 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textColor="#999999"
+        android:lineSpacingExtra="4dp"
+        android:text="使用步骤：\n1. 点击「授权通知访问权限」并开启\n2. 在手机蓝牙设置里先配对打印机\n3. 点击「扫描」选择你的打印机\n4. 完成后可最小化，App后台自动运行\n5. 手机重启后会自动恢复监听"/>
+
+</LinearLayout>
