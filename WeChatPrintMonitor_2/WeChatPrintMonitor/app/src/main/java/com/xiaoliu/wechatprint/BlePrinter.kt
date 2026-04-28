@@ -1,152 +1,88 @@
 package com.xiaoliu.wechatprint
 
-import android.bluetooth.*
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
+import java.io.OutputStream
 import java.util.UUID
 
 class BlePrinter(private val context: Context) {
 
     companion object {
         const val TAG = "BlePrinter"
-        // 大多数蓝牙热敏打印机通用的 SPP over BLE 服务UUID
-        val PRINT_SERVICE_UUID: UUID = UUID.fromString("49535343-fe7d-4ae5-8fa9-9fafd205e455")
-        val PRINT_CHAR_UUID:    UUID = UUID.fromString("49535343-8841-43f4-a8d4-ecbe34729bb3")
+        val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     }
 
-    private var gatt: BluetoothGatt? = null
-    private var printChar: BluetoothGattCharacteristic? = null
-    private var targetAddress: String = ""
+    private val queue = java.util.concurrent.LinkedBlockingQueue<PrintJob>()
+    private var running = false
 
-    // ESC/POS 基础指令
-    private val ESC_INIT      = byteArrayOf(0x1B, 0x40)           // 初始化打印机
-    private val ESC_ALIGN_CTR = byteArrayOf(0x1B, 0x61, 0x01)    // 居中
-    private val ESC_ALIGN_LFT = byteArrayOf(0x1B, 0x61, 0x00)    // 左对齐
-    private val ESC_BOLD_ON   = byteArrayOf(0x1B, 0x45, 0x01)    // 粗体开
-    private val ESC_BOLD_OFF  = byteArrayOf(0x1B, 0x45, 0x00)    // 粗体关
-    private val ESC_FEED      = byteArrayOf(0x0A)                  // 换行
-    private val ESC_CUT       = byteArrayOf(0x1D, 0x56, 0x42, 0x00) // 切纸
+    data class PrintJob(val group: String, val sender: String, val content: String, val time: String)
 
-    // ── 连接到指定MAC地址的打印机 ─────────────────────────────────
-    fun connect(macAddress: String) {
-        targetAddress = macAddress
-        val adapter = BluetoothAdapter.getDefaultAdapter() ?: run {
-            Log.e(TAG, "设备不支持蓝牙")
-            return
-        }
-        val device = adapter.getRemoteDevice(macAddress)
-        gatt = device.connectGatt(context, true, gattCallback, BluetoothDevice.TRANSPORT_LE)
-        Log.i(TAG, "正在连接打印机: $macAddress")
-    }
-
-    private val gattCallback = object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.i(TAG, "打印机已连接，正在发现服务...")
-                g.discoverServices()
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.w(TAG, "打印机断开，5秒后重连...")
-                printChar = null
-                Thread.sleep(5000)
-                g.connect()   // 自动重连
+    fun connect(mac: String) {
+        if (running) return
+        running = true
+        Thread {
+            while (running) {
+                try {
+                    val job = queue.take()
+                    doPrint(job)
+                } catch (e: InterruptedException) { break }
             }
-        }
-
-        override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-            printChar = g.getService(PRINT_SERVICE_UUID)
-                ?.getCharacteristic(PRINT_CHAR_UUID)
-            if (printChar != null) {
-                Log.i(TAG, "打印特征值已就绪")
-            } else {
-                Log.e(TAG, "未找到打印特征值，请确认打印机型号")
-            }
-        }
+        }.start()
     }
 
-    // ── 打印一条@消息 ─────────────────────────────────────────────
     fun print(group: String, sender: String, content: String, time: String) {
-        val char = printChar ?: run {
-            Log.e(TAG, "打印机未连接，消息丢弃: $content")
-            return
-        }
-
-        val bytes = buildPrintBytes(group, sender, content, time)
-
-        // BLE MTU限制（通常20字节），需要分包发送
-        bytes.toList().chunked(20).forEach { chunk ->
-            char.value = chunk.toByteArray()
-            gatt?.writeCharacteristic(char)
-            Thread.sleep(30)   // 每包之间稍等，避免丢包
-        }
-
-        Log.i(TAG, "打印完成: [$group] $sender")
+        queue.offer(PrintJob(group, sender, content, time))
     }
 
-    // ── 组装打印字节流（ESC/POS格式）─────────────────────────────
-    private fun buildPrintBytes(
-        group: String, sender: String, content: String, time: String
-    ): ByteArray {
-        val buf = mutableListOf<Byte>()
+    private fun doPrint(job: PrintJob) {
+        var socket: BluetoothSocket? = null
+        try {
+            val adapter = BluetoothAdapter.getDefaultAdapter()
+            adapter.cancelDiscovery()
+            val device = adapter.bondedDevices.firstOrNull() ?: run {
+                Log.e(TAG, "没有配对的打印机"); return
+            }
+            socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
+            socket.connect()
+            val os: OutputStream = socket.outputStream
 
-        fun add(b: ByteArray) = buf.addAll(b.toList())
-        fun addText(s: String) = buf.addAll(s.toByteArray(Charsets.UTF_8).toList())
-        fun newLine() = add(ESC_FEED)
+            val ESC_INIT  = byteArrayOf(0x1B, 0x40)
+            val ALIGN_CTR = byteArrayOf(0x1B, 0x61, 0x01)
+            val ALIGN_LFT = byteArrayOf(0x1B, 0x61, 0x00)
+            val BOLD_ON   = byteArrayOf(0x1B, 0x45, 0x01)
+            val BOLD_OFF  = byteArrayOf(0x1B, 0x45, 0x00)
+            val LF        = byteArrayOf(0x0A)
+            val CUT       = byteArrayOf(0x1D, 0x56, 0x01)
 
-        add(ESC_INIT)
+            fun w(b: ByteArray) = os.write(b)
+            fun t(s: String)    = os.write(s.toByteArray(charset("GBK")))
+            fun nl()            = w(LF)
 
-        // ── 标题行：居中 + 粗体 ──
-        add(ESC_ALIGN_CTR)
-        add(ESC_BOLD_ON)
-        addText("[ 微信群 @消息 ]")
-        newLine()
-        add(ESC_BOLD_OFF)
+            w(ESC_INIT)
+            w(ALIGN_CTR); w(BOLD_ON); t("@我"); w(BOLD_OFF); nl()
+            w(ALIGN_LFT)
+            w(BOLD_ON); t("来自:"); w(BOLD_OFF); t(job.sender.take(8)); nl()
+            w(BOLD_ON); t("群: "); w(BOLD_OFF); t(job.group.take(8)); nl()
+            t(job.time); nl()
+            t(job.content.take(16)); nl()
+            nl(); nl(); nl(); nl()
+            w(CUT)
 
-        // ── 分割线 ──
-        add(ESC_ALIGN_LFT)
-        addText("--------------------------------")
-        newLine()
+            os.flush()
+            Thread.sleep(800)
+            Log.i(TAG, "打印成功: ${job.sender}")
 
-        // ── 群名 ──
-        add(ESC_BOLD_ON)
-        addText("群：")
-        add(ESC_BOLD_OFF)
-        addText(group)
-        newLine()
-
-        // ── 发送者 ──
-        add(ESC_BOLD_ON)
-        addText("来自：")
-        add(ESC_BOLD_OFF)
-        addText(sender)
-        newLine()
-
-        // ── 时间 ──
-        add(ESC_BOLD_ON)
-        addText("时间：")
-        add(ESC_BOLD_OFF)
-        addText(time)
-        newLine()
-
-        // ── 分割线 ──
-        addText("--------------------------------")
-        newLine()
-
-        // ── 消息内容（主体）──
-        addText(content)
-        newLine()
-        newLine()
-
-        // ── 走纸 + 切纸 ──
-        newLine()
-        newLine()
-        add(ESC_CUT)
-
-        return buf.toByteArray()
+        } catch (e: Exception) {
+            Log.e(TAG, "打印失败: ${e.message}")
+        } finally {
+            try { socket?.close() } catch (e: Exception) {}
+        }
     }
 
     fun disconnect() {
-        gatt?.disconnect()
-        gatt?.close()
-        gatt = null
+        running = false
+        queue.clear()
     }
 }
