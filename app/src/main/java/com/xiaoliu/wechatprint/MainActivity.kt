@@ -22,7 +22,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTestNotify: Button
     private lateinit var spinnerPrinters: Spinner
     private var scannedDevices: List<BluetoothDevice> = emptyList()
-    private var printer: BlePrinter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,40 +46,30 @@ class MainActivity : AppCompatActivity() {
 
         btnScan.setOnClickListener { scanPairedDevices() }
 
-        // 测试按钮1：直接测试打印机出纸
         btnTestPrint.setOnClickListener {
             val mac = getSavedPrinterAddress()
-            if (mac.isEmpty()) {
-                toast("请先扫描并选择打印机")
-                return@setOnClickListener
-            }
-            tvStatus.text = "正在连接打印机，请等待3秒..."
+            if (mac.isEmpty()) { toast("请先扫描并选择打印机"); return@setOnClickListener }
+            tvStatus.text = "正在连接，3秒后打印测试..."
             val p = BlePrinter(this)
-            printer = p
             p.connect(mac)
             Handler(Looper.getMainLooper()).postDelayed({
-                val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
-                p.print("测试群", "测试用户", "@小刘刘 打印机连接测试，收到请查收！", time)
-                tvStatus.text = "打印指令已发送\n· 有出纸 → 打印机正常✅\n· 没出纸 → 检查打印机是否开机并已配对"
-            }, 3000)
+                val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                p.print("测试群", "张三", "@小刘刘 打印机测试成功！", time)
+                tvStatus.text = "测试指令已发送\n· 有出纸 ✅ 打印机正常\n· 没出纸 ❌ 检查打印机配对"
+            }, 2000)
         }
 
-        // 测试按钮2：模拟完整@通知流程
         btnTestNotify.setOnClickListener {
             val mac = getSavedPrinterAddress()
-            if (mac.isEmpty()) {
-                toast("请先扫描并选择打印机")
-                return@setOnClickListener
-            }
-            tvStatus.text = "模拟@通知中，请等待3秒..."
+            if (mac.isEmpty()) { toast("请先扫描并选择打印机"); return@setOnClickListener }
+            tvStatus.text = "模拟@通知中..."
             val p = BlePrinter(this)
-            printer = p
             p.connect(mac)
             Handler(Looper.getMainLooper()).postDelayed({
-                val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
-                p.print("产品讨论群", "张三", "@小刘刘 模拟通知测试，完整流程验证！", time)
-                tvStatus.text = "模拟通知已发送\n· 有出纸 → 完整流程正常✅，问题在系统通知限制\n· 没出纸 → 蓝牙连接有问题"
-            }, 3000)
+                val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                p.print("产品讨论群", "李四", "@小刘刘 下午三点开会", time)
+                tvStatus.text = "模拟通知已发送\n· 有出纸 ✅ 完整流程正常\n· 没出纸 ❌ 蓝牙连接问题"
+            }, 2000)
         }
 
         spinnerPrinters.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -88,7 +77,7 @@ class MainActivity : AppCompatActivity() {
                 if (scannedDevices.isNotEmpty()) {
                     val device = scannedDevices[pos]
                     savePrinterAddress(device.address)
-                    tvStatus.text = "已选择：${device.name}\n点击「③测试打印」验证连接"
+                    tvStatus.text = "已选择：${device.name}\n点击③测试打印验证连接"
                 }
             }
             override fun onNothingSelected(p: AdapterView<*>) {}
@@ -105,9 +94,9 @@ class MainActivity : AppCompatActivity() {
     private fun updatePermissionStatus() {
         val granted = isNotificationListenerEnabled()
         tvStatus.text = if (granted)
-            "通知权限：已授权✅\n\n先点②扫描打印机\n再点③测试打印机连接\n最后点④测试完整流程"
+            "通知权限：已授权 ✅\n\n先点②扫描打印机\n再点③测试连接\n最后点④测试完整流程"
         else
-            "通知权限：未授权❌\n请点击①去授权"
+            "通知权限：未授权 ❌\n请点①去授权"
     }
 
     private fun isNotificationListenerEnabled(): Boolean {
@@ -117,32 +106,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun scanPairedDevices() {
         val adapter = BluetoothAdapter.getDefaultAdapter()
-        if (adapter == null || !adapter.isEnabled) {
-            toast("请先开启蓝牙")
-            return
-        }
+        if (adapter == null || !adapter.isEnabled) { toast("请先开启蓝牙"); return }
         scannedDevices = adapter.bondedDevices.toList()
-        if (scannedDevices.isEmpty()) {
-            toast("没有已配对设备，请先在手机蓝牙设置里配对打印机")
-            return
-        }
+        if (scannedDevices.isEmpty()) { toast("没有已配对设备，请先配对打印机"); return }
         val names = scannedDevices.map { "${it.name}  (${it.address})" }
         spinnerPrinters.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names)
             .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        val savedAddr = getSavedPrinterAddress()
-        val idx = scannedDevices.indexOfFirst { it.address == savedAddr }
+        val idx = scannedDevices.indexOfFirst { it.address == getSavedPrinterAddress() }
         if (idx >= 0) spinnerPrinters.setSelection(idx)
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-
-    private fun savePrinterAddress(address: String) {
-        getSharedPreferences("prefs", MODE_PRIVATE).edit()
-            .putString("printer_mac", address).apply()
-    }
-
-    private fun getSavedPrinterAddress(): String {
-        return getSharedPreferences("prefs", MODE_PRIVATE)
-            .getString("printer_mac", "") ?: ""
-    }
+    private fun savePrinterAddress(a: String) = getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("printer_mac", a).apply()
+    private fun getSavedPrinterAddress() = getSharedPreferences("prefs", MODE_PRIVATE).getString("printer_mac", "") ?: ""
 }
