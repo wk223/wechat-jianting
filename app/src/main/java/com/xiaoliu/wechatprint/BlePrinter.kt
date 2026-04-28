@@ -62,13 +62,12 @@ class BlePrinter(private val context: Context) {
             fun nl()            = w(LF)
 
             w(ESC_INIT)
-            w(ALIGN_CTR); w(BOLD_ON); t("@我"); w(BOLD_OFF); nl()
             w(ALIGN_LFT)
             w(BOLD_ON); t("来自:"); w(BOLD_OFF); t(job.sender.take(8)); nl()
             w(BOLD_ON); t("群: "); w(BOLD_OFF); t(job.group.take(8)); nl()
             t(job.time); nl()
-            t(job.content.take(16)); nl()
-            nl(); nl()
+            t(job.content.take(32)); nl()
+            nl(); nl(); nl()
             w(CUT)
 
             os.flush()
