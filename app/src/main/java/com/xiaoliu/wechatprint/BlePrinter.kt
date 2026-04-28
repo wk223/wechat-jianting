@@ -1,85 +1,88 @@
 package com.xiaoliu.wechatprint
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
-import com.dantsu.escposprinter.EscPosPrinter
-import com.dantsu.escposprinter.connection.bluetooth.BluetoothPrintersConnections
+import java.io.OutputStream
+import java.util.UUID
 
 class BlePrinter(private val context: Context) {
 
     companion object {
         const val TAG = "BlePrinter"
+        val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     }
 
-    private val printQueue = java.util.concurrent.LinkedBlockingQueue<PrintJob>()
-    private var workerRunning = false
+    private val queue = java.util.concurrent.LinkedBlockingQueue<PrintJob>()
+    private var running = false
 
-    data class PrintJob(
-        val group: String,
-        val sender: String,
-        val content: String,
-        val time: String
-    )
+    data class PrintJob(val group: String, val sender: String, val content: String, val time: String)
 
-    fun connect(macAddress: String) {
-        startWorker()
-    }
-
-    private fun startWorker() {
-        if (workerRunning) return
-        workerRunning = true
+    fun connect(mac: String) {
+        if (running) return
+        running = true
         Thread {
-            Log.i(TAG, "打印队列启动")
-            while (workerRunning) {
+            while (running) {
                 try {
-                    val job = printQueue.take()
-                    executePrint(job)
-                } catch (e: InterruptedException) {
-                    break
-                }
-            }private fun executePrint(job: PrintJob) {
-    var retryCount = 0
-    while (retryCount < 3) {
-        try {
-            val connection = BluetoothPrintersConnections.selectFirstPaired()
-                ?: run {
-                    Log.e(TAG, "没有找到已配对的蓝牙打印机")
-                    return
-                }
-
-            val printer = EscPosPrinter(connection, 203, 40f, 16)
-
-            printer.printFormattedTextAndCut(
-                "[C]<b>@我</b>\n" +
-                "[L]来自:${job.sender.take(8)}\n" +
-                "[L]群:${job.group.take(8)}\n" +
-                "[L]${job.time}\n" +
-                "[L]${job.content.take(16)}\n" +
-                "[L]\n"
-            )
-
-            Log.i(TAG, "打印成功: ${job.sender}")
-            return
-
-        } catch (e: Exception) {
-            retryCount++
-            Log.e(TAG, "打印失败(第${retryCount}次): ${e.message}")
-            if (retryCount < 3) Thread.sleep(1500)
-        }
-    }
-}
+                    val job = queue.take()
+                    doPrint(job)
+                } catch (e: InterruptedException) { break }
+            }
         }.start()
     }
 
     fun print(group: String, sender: String, content: String, time: String) {
-        printQueue.offer(PrintJob(group, sender, content, time))
-        Log.i(TAG, "加入队列: $sender -> $group")
+        queue.offer(PrintJob(group, sender, content, time))
     }
 
-    
+    private fun doPrint(job: PrintJob) {
+        var socket: BluetoothSocket? = null
+        try {
+            val adapter = BluetoothAdapter.getDefaultAdapter()
+            adapter.cancelDiscovery()
+            val device = adapter.bondedDevices.firstOrNull() ?: run {
+                Log.e(TAG, "没有配对的打印机"); return
+            }
+            socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
+            socket.connect()
+            val os: OutputStream = socket.outputStream
+
+            // ESC/POS 指令手写，不依赖任何库
+            val ESC_INIT   = byteArrayOf(0x1B, 0x40)
+            val ALIGN_CTR  = byteArrayOf(0x1B, 0x61, 0x01)
+            val ALIGN_LFT  = byteArrayOf(0x1B, 0x61, 0x00)
+            val BOLD_ON    = byteArrayOf(0x1B, 0x45, 0x01)
+            val BOLD_OFF   = byteArrayOf(0x1B, 0x45, 0x00)
+            val LF         = byteArrayOf(0x0A)
+            val CUT        = byteArrayOf(0x1D, 0x56, 0x01)
+
+            fun w(b: ByteArray) = os.write(b)
+            fun t(s: String)    = os.write(s.toByteArray(Charsets.UTF_8))
+            fun nl()            = w(LF)
+
+            w(ESC_INIT)
+            w(ALIGN_CTR); w(BOLD_ON); t("@我"); w(BOLD_OFF); nl()
+            w(ALIGN_LFT)
+            w(BOLD_ON); t("来自:"); w(BOLD_OFF); t(job.sender.take(8)); nl()
+            w(BOLD_ON); t("群: "); w(BOLD_OFF); t(job.group.take(8)); nl()
+            t(job.time); nl()
+            t(job.content.take(16)); nl()
+            nl(); nl()
+            w(CUT)
+
+            os.flush()
+            Log.i(TAG, "打印成功: ${job.sender}")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "打印失败: ${e.message}")
+        } finally {
+            try { socket?.close() } catch (e: Exception) {}
+        }
+    }
 
     fun disconnect() {
-        workerRunning = false
-        printQueue.clear()
+        running = false
+        queue.clear()
     }
 }
