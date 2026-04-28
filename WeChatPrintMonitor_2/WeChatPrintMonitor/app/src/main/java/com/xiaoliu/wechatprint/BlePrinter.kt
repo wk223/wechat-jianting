@@ -57,7 +57,7 @@ class BlePrinter(private val context: Context) {
             val CUT       = byteArrayOf(0x1D, 0x56, 0x01)
 
             fun w(b: ByteArray) = os.write(b)
-            fun t(s: String)    = os.write(s.toByteArray(charset("GBK")))
+            fun t(s: String)    = os.write(s.toByteArray(charset("GB2312")))
             fun nl()            = w(LF)
 
             w(ESC_INIT)
