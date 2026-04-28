@@ -37,7 +37,37 @@ class BlePrinter(private val context: Context) {
                 } catch (e: InterruptedException) {
                     break
                 }
-            }
+            }private fun executePrint(job: PrintJob) {
+    var retryCount = 0
+    while (retryCount < 3) {
+        try {
+            val connection = BluetoothPrintersConnections.selectFirstPaired()
+                ?: run {
+                    Log.e(TAG, "没有找到已配对的蓝牙打印机")
+                    return
+                }
+
+            val printer = EscPosPrinter(connection, 203, 40f, 16)
+
+            printer.printFormattedTextAndCut(
+                "[C]<b>@我</b>\n" +
+                "[L]来自:${job.sender.take(8)}\n" +
+                "[L]群:${job.group.take(8)}\n" +
+                "[L]${job.time}\n" +
+                "[L]${job.content.take(16)}\n" +
+                "[L]\n"
+            )
+
+            Log.i(TAG, "打印成功: ${job.sender}")
+            return
+
+        } catch (e: Exception) {
+            retryCount++
+            Log.e(TAG, "打印失败(第${retryCount}次): ${e.message}")
+            if (retryCount < 3) Thread.sleep(1500)
+        }
+    }
+}
         }.start()
     }
 
@@ -46,40 +76,7 @@ class BlePrinter(private val context: Context) {
         Log.i(TAG, "加入队列: $sender -> $group")
     }
 
-    private fun executePrint(job: PrintJob) {
-        var retryCount = 0
-        while (retryCount < 3) {
-            try {
-                val connection = BluetoothPrintersConnections.selectFirstPaired()
-                    ?: run {
-                        Log.e(TAG, "没有找到已配对的蓝牙打印机")
-                        return
-                    }
-
-                // 40mm纸宽，203dpi，每行16字符
-                val printer = EscPosPrinter(connection, 203, 40f, 16)
-
-                // 格式适配40mm x 30mm
-                // sender = @你的那个人的昵称（核心内容）
-                printer.printFormattedTextAndCut(
-                    "[C]<b>[ @ 我 ]</b>\n" +
-                    "[L]<b>来自:</b>${job.sender.take(8)}\n" +
-                    "[L]<b>群:</b>${job.group.take(8)}\n" +
-                    "[L]<b>时间:</b>${job.time}\n" +
-                    "[L]${job.content.take(18)}\n"
-                )
-
-                Log.i(TAG, "打印成功: ${job.sender}")
-                return
-
-            } catch (e: Exception) {
-                retryCount++
-                Log.e(TAG, "打印失败(第${retryCount}次): ${e.message}")
-                if (retryCount < 3) Thread.sleep(1500)
-            }
-        }
-        Log.e(TAG, "重试3次失败")
-    }
+    
 
     fun disconnect() {
         workerRunning = false
