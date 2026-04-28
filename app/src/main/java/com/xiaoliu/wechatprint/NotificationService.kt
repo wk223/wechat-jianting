@@ -71,7 +71,8 @@ class NotificationService : NotificationListenerService() {
         if (sbn.packageName != WECHAT_PACKAGE) return
         val extras = sbn.notification.extras ?: return
         val title = extras.getString(Notification.EXTRA_TITLE) ?: return
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: return
+        val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
+    ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString() ?: return
 
         Log.d(TAG, "微信通知 | $title | $text")
 
