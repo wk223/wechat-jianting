@@ -18,7 +18,7 @@ class NotificationService : NotificationListenerService() {
     companion object {
         const val TAG = "WeChatPrint"
         const val WECHAT_PACKAGE = "com.tencent.mm"
-        const val MY_NICKNAME = "小刘刘"          // 匹配开头，兼容后面多余字符
+        const val MY_NICKNAME = "朱磊"          // 匹配开头，兼容后面多余字符
         const val CHANNEL_ID = "wechat_print_fg"
         const val NOTIF_ID = 1001
     }
@@ -56,7 +56,7 @@ class NotificationService : NotificationListenerService() {
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("@消息监控运行中")
-            .setContentText("正在监听微信群 @小刘刘 消息")
+            .setContentText("正在监听微信群 @朱磊 消息")
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentIntent(openIntent)
             .setOngoing(true)          // 不可被用户手动清除
@@ -77,7 +77,7 @@ class NotificationService : NotificationListenerService() {
 
         Log.d(TAG, "微信通知 | 标题: $title | 内容: $text")
 
-        // 判断是否@了我（匹配"小刘刘"开头，兼容后续字符）
+        // 判断是否@了我（匹配"朱磊"开头，兼容后续字符）
         if (!isMentionMe(text)) return
 
         // 解析发送者和消息内容
@@ -103,9 +103,9 @@ class NotificationService : NotificationListenerService() {
         printer.print(group, sender, content, time)
     }
 
-    // ── @判断：包含"@小刘刘"（后面可跟任意字符）──────────────────
+    // ── @判断：包含"@朱磊"（后面可跟任意字符）──────────────────
     private fun isMentionMe(text: String): Boolean {
-        // 正则：@小刘刘 后面跟0个或多个非空白字符（兼容你说的那个打不出的字符）
+        // 正则：@朱磊 后面跟0个或多个非空白字符（兼容你说的那个打不出的字符）
         val pattern = Regex("@${Regex.escape(MY_NICKNAME)}\\S*")
         return pattern.containsMatchIn(text)
     }
