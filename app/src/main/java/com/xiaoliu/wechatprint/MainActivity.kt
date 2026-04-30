@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
             p.connect(mac)
             Handler(Looper.getMainLooper()).postDelayed({
                 val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
-                p.print("测试群", "张三", "@小刘刘 打印机测试成功！", time)
+                p.print("测试群", "张三", "@朱磊 打印机测试成功！", time)
                 tvStatus.text = "测试指令已发送\n· 有出纸 ✅ 打印机正常\n· 没出纸 ❌ 检查打印机配对"
             }, 2000)
         }
@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
             p.connect(mac)
             Handler(Looper.getMainLooper()).postDelayed({
                 val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
-                p.print("产品讨论群", "李四", "@小刘刘 下午三点开会", time)
+                p.print("产品讨论群", "李四", "@朱磊 下午三点开会", time)
                 tvStatus.text = "模拟通知已发送\n· 有出纸 ✅ 完整流程正常\n· 没出纸 ❌ 蓝牙连接问题"
             }, 2000)
         }
