@@ -19,7 +19,7 @@
         android:layout_marginBottom="4dp"/>
 
     <TextView
-        android:text="监听昵称：小刘刘"
+        android:text="监听昵称：朱磊"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="13sp"
