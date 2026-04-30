@@ -1,7 +1,0 @@
-<resources>
-    <style name="Theme.WeChatPrintMonitor" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <item name="colorPrimary">#1976D2</item>
-        <item name="colorPrimaryVariant">#004BA0</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-    </style>
-</resources>
