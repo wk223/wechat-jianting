@@ -62,7 +62,7 @@ class BlePrinter(private val context: Context) {
             fun nl()            = w(LF)
 
             w(ESC_INIT)
-            w(byteArrayOf(0x1D, 0x21, 0x11)) // 宽高各放大2倍
+            w(byteArrayOf(0x1D, 0x21, 0x22)) // 宽高各放大2倍
             w(ALIGN_LFT)
             w(BOLD_ON); t("来自:"); w(BOLD_OFF); t(job.sender.take(8)); nl()
             w(BOLD_ON); t("群: "); w(BOLD_OFF); t(job.group.take(8)); nl()
