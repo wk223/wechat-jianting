@@ -18,7 +18,7 @@ class NotificationService : NotificationListenerService() {
     companion object {
         const val TAG = "WeChatPrint"
         const val WECHAT_PACKAGE = "com.tencent.mm"
-        const val MY_NICKNAME = "小刘刘"
+        const val MY_NICKNAME = "朱磊"
         const val CHANNEL_ID = "wechat_print_fg"
         const val NOTIF_ID = 1001
     }
@@ -58,7 +58,7 @@ class NotificationService : NotificationListenerService() {
         )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("@消息监控运行中")
-            .setContentText("监听 @小刘刘 消息中")
+            .setContentText("监听 @朱磊 消息中")
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentIntent(openIntent)
             .setOngoing(true)
