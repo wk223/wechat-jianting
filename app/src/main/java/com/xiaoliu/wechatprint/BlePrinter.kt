@@ -73,7 +73,7 @@ class BlePrinter(private val context: Context) {
             lines.take(6).forEach { t(it); nl() }
             // 强制走满60mm，60mm约等于12行（203dpi），内容占了几行就补剩余的空行
             val contentLines = 3 + lines.take(6).size  // 来自+群+时间+内容行数
-            val emptyLines = maxOf(12 - contentLines, 6)
+            val emptyLines = maxOf(13 - contentLines, 6)
             repeat(emptyLines) { nl() }
             w(CUT)
             os.flush()
