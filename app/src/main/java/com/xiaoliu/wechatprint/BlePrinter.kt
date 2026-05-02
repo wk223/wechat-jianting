@@ -71,7 +71,10 @@ class BlePrinter(private val context: Context) {
             val cleanContent = job.content.trimStart { it.isDigit() || it == '[' || it == ']' || it == ' ' }
             val lines = cleanContent.chunked(8)
             lines.take(6).forEach { t(it); nl() }
-            nl(); nl(); nl(); nl()
+            // 强制走满60mm，60mm约等于12行（203dpi），内容占了几行就补剩余的空行
+            val contentLines = 3 + lines.take(6).size  // 来自+群+时间+内容行数
+            val emptyLines = maxOf(12 - contentLines, 6)
+            repeat(emptyLines) { nl() }
             w(CUT)
             os.flush()
             Log.i(TAG, "打印成功: ${job.sender}")
