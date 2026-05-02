@@ -62,15 +62,17 @@ class BlePrinter(private val context: Context) {
             fun nl()            = w(LF)
 
             w(ESC_INIT)
-            w(byteArrayOf(0x1D, 0x21, 0x11)) // 宽高各放大2倍
+            w(byteArrayOf(0x1D, 0x21, 0x11)) // 字体放大2倍
             w(ALIGN_LFT)
-            w(BOLD_ON); t("来自:"); w(BOLD_OFF); t(job.sender.take(8)); nl()
-            w(BOLD_ON); t("群: "); w(BOLD_OFF); t(job.group.take(8)); nl()
+            w(BOLD_ON); t("来自:"); w(BOLD_OFF); t(job.sender.take(12)); nl()
+            w(BOLD_ON); t("群: "); w(BOLD_OFF); t(job.group.take(12)); nl()
             t(job.time); nl()
-            t(job.content.take(32)); nl()
-            nl(); nl(); nl()
+            // 60mm高度足够，内容显示更多，每行约8个中文字，分多行显示
+            val cleanContent = job.content.trimStart { it.isDigit() || it == '[' || it == ']' || it == ' ' }
+            val lines = cleanContent.chunked(8)
+            lines.take(6).forEach { t(it); nl() }
+            nl(); nl(); nl(); nl()
             w(CUT)
-
             os.flush()
             Log.i(TAG, "打印成功: ${job.sender}")
 
